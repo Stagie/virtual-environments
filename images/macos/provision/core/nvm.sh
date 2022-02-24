@@ -5,16 +5,17 @@
 ###########################################################################
 source ~/utils/utils.sh
 
-VERSION=$(curl -s https://api.github.com/repos/nvm-sh/nvm/releases/latest | jq -r '.tag_name')
+[ -n "$API_PAT" ] && authString=(-H "Authorization: token ${API_PAT}")
+VERSION=$(curl "${authString[@]}" -s https://api.github.com/repos/nvm-sh/nvm/releases/latest | jq -r '.tag_name')
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/$VERSION/install.sh | bash
 
 if [ $? -eq 0 ]; then
         . ~/.bashrc
         nvm --version
-        nodeVersions=("v10" "v12" "v14")
+        nodeVersions=$(get_toolset_value '.node.nvm_versions[]')
         for version in ${nodeVersions[@]}
         do
-                nvm install $version
+                nvm install v${version}
         done
 
         # set system node as default

@@ -13,12 +13,6 @@ function Get-SDKVersion {
     ($installedApplications | Where-Object { $_.DisplayName -eq 'Windows SDK' } | Select-Object -First 1).DisplayVersion
 }
 
-function Get-WixVersion {
-    $regKey = "HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
-    $installedApplications = Get-ItemProperty -Path $regKey
-    ($installedApplications | Where-Object { $_.DisplayName -match "wix" } | Select-Object -First 1).DisplayVersion
-}
-
 function Get-WDKVersion {
     $regKey = "HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
     $installedApplications = Get-ItemProperty -Path $regKey
@@ -68,10 +62,8 @@ function Get-VisualStudioExtensions {
 
     if ((Test-IsWin16) -or (Test-IsWin19)) {
         # Wix
-        $wixPackageVersion = Get-WixVersion
         $wixExtensionVersion = ($vsPackages | Where-Object {$_.Id -match 'WixToolset.VisualStudioExtension.Dev' -and $_.type -eq 'vsix'}).Version
         $wixPackages = @(
-            @{Package = 'WIX Toolset'; Version = $wixPackageVersion}
             @{Package = "WIX Toolset Studio $vs Extension"; Version = $wixExtensionVersion}
         )
 
@@ -96,4 +88,12 @@ function Get-VisualStudioExtensions {
     $extensions | Foreach-Object {
         [PSCustomObject]$_
     } | Select-Object Package, Version | Sort-Object Package
+}
+
+function Get-WindowsSDKs {
+    $path = "${env:ProgramFiles(x86)}\Windows Kits\10\Extension SDKs\WindowsDesktop"
+    return [PSCustomObject]@{
+        Path = $path
+        Versions = $(Get-ChildItem $path).Name
+    }
 }

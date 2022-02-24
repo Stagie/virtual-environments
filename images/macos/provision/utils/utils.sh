@@ -63,40 +63,8 @@ is_Catalina() {
     fi
 }
 
-is_Mojave() {
-    if [ "$OSTYPE" = "darwin18" ]; then
-        true
-    else
-        false
-    fi
-}
-
-is_HighSierra() {
-    if [ "$OSTYPE" = "darwin17" ]; then
-        true
-    else
-        false
-    fi
-}
-
-is_Less_Catalina() {
-    if is_HighSierra || is_Mojave; then
-        true
-    else
-        false
-    fi
-}
-
-is_Less_BigSur() {
-    if is_HighSierra || is_Mojave || is_Catalina; then
-        true
-    else
-        false
-    fi
-}
-
 is_Less_Monterey() {
-    if is_HighSierra || is_Mojave || is_Catalina || is_BigSur; then
+    if is_Catalina || is_BigSur; then
         true
     else
         false
@@ -132,11 +100,7 @@ brew_cask_install_ignoring_sha256() {
 }
 
 get_brew_os_keyword() {
-    if is_HighSierra; then
-        echo "high_sierra"
-    elif is_Mojave; then
-        echo "mojave"
-    elif is_Catalina; then
+    if is_Catalina; then
         echo "catalina"
     elif is_BigSur; then
         echo "big_sur"
@@ -206,4 +170,26 @@ configure_user_tccdb () {
     local dbPath="$HOME/Library/Application Support/com.apple.TCC/TCC.db"
     local sqlQuery="INSERT OR IGNORE INTO access VALUES($values);"
     sqlite3 "$dbPath" "$sqlQuery"
+}
+
+get_github_package_download_url() {
+    local REPO_ORG=$1
+    local FILTER=$2
+    local VERSION=$3
+    local API_PAT=$4
+    local SEARCH_IN_COUNT="100"
+
+    [ -n "$API_PAT" ] && authString=(-H "Authorization: token ${API_PAT}")
+
+    json=$(curl "${authString[@]}" -s "https://api.github.com/repos/${REPO_ORG}/releases?per_page=${SEARCH_IN_COUNT}")
+
+    if [[ "$VERSION" == "latest" ]]; then
+        tagName=$(echo $json | jq -r '.[] | select(.prerelease==false).tag_name' | sort --unique --version-sort | egrep -v ".*-[a-z]" | tail -1)
+    else
+        tagName=$(echo $json | jq -r '.[] | select(.prerelease==false).tag_name' | sort --unique --version-sort | egrep -v ".*-[a-z]" | egrep "\w*${VERSION}" | tail -1)
+    fi
+
+    downloadUrl=$(echo $json | jq -r ".[] | select(.tag_name==\"${tagName}\").assets[].browser_download_url | select(${FILTER})" | head -n 1)
+
+    echo $downloadUrl
 }

@@ -61,9 +61,13 @@ function Get-DockerComposeVersion {
     return "Docker-compose $dockerComposeVersion"
 }
 
+function Get-DockerWincredVersion {
+    $dockerCredVersion = $(docker-credential-wincred version)
+    return "Docker-wincred $dockerCredVersion"
+}
+
 function Get-GitVersion {
-    $(git version) -match "git version (?<version>\d+\.\d+\.\d+)" | Out-Null
-    $gitVersion = $Matches.Version
+    $gitVersion = git --version | Take-Part -Part -1
     return "Git $gitVersion"
 }
 
@@ -106,6 +110,11 @@ function Get-MySQLVersion {
     return "MySQL $mysqlVersion"
 }
 
+function Get-SQLOLEDBDriverVersion {
+    $SQLOLEDBDriverVersion = (Get-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\MSOLEDBSQL' InstalledVersion).InstalledVersion
+    return "SQL OLEDB Driver $SQLOLEDBDriverVersion"
+}
+
 function Get-MercurialVersion {
     ($(hg --version) | Out-String) -match "version (?<version>\d+\.\d+\.?\d*)" | Out-Null
     $mercurialVersion = $Matches.Version
@@ -128,6 +137,11 @@ function Get-PackerVersion {
     ($(cmd /c "packer --version 2>&1") | Out-String) -match "(?<version>(\d+.){2}\d+)" | Out-Null
     $packerVersion = $Matches.Version
     return "Packer $packerVersion"
+}
+
+function Get-ParcelVersion {
+    $parcelVersion = parcel --version
+    return "Parcel $parcelVersion"
 }
 
 function Get-PulumiVersion {
@@ -154,6 +168,12 @@ function Get-VSWhereVersion {
 function Get-WinAppDriver {
     $winAppDriverVersion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("C:\Program Files (x86)\Windows Application Driver\WinAppDriver.exe").FileVersion
     return "WinAppDriver $winAppDriverVersion"
+}
+
+function Get-WixVersion {
+    $regKey = "HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
+    $installedApplications = Get-ItemProperty -Path $regKey
+    return ($installedApplications | Where-Object { $_.BundleCachePath -imatch ".*\\WiX\d*\.exe$" } | Select-Object -First 1).DisplayName
 }
 
 function Get-ZstdVersion {
@@ -238,6 +258,11 @@ function Get-GoogleCloudSDKVersion {
     (gcloud --version) -match "Google Cloud SDK"
 }
 
+function Get-ServiceFabricSDKVersion {
+    $serviceFabricSDKVersion = Get-ItemPropertyValue 'HKLM:\SOFTWARE\Microsoft\Service Fabric\' -Name FabricVersion
+    return "Service Fabric SDK $serviceFabricSDKVersion"
+}
+
 function Get-NewmanVersion {
     return "Newman $(newman --version)"
 }
@@ -266,7 +291,7 @@ function Get-VisualCPPComponents {
 }
 
 function Get-DacFxVersion {
-    $dacfxversion = & "$env:ProgramFiles\Microsoft SQL Server\150\DAC\bin\sqlpackage.exe" /version
+    $dacfxversion = & "$env:ProgramFiles\Microsoft SQL Server\160\DAC\bin\sqlpackage.exe" /version
     return "DacFx $dacfxversion"
 }
 

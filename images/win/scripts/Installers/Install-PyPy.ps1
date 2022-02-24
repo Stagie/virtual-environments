@@ -3,22 +3,6 @@
 ##  Team:  CI-Build
 ##  Desc:  Install PyPy
 ################################################################################
-function Get-PyPyVersions
-{
-    $uri = "https://downloads.python.org/pypy/"
-    try
-    {
-        $hrefs = (Invoke-WebRequest -Uri $uri).Links.href
-        $hrefs | Where-Object {$_ -match '^pypy'} | Select-Object @{n = "Name"; e = {$_}}, @{n = "href"; e = {
-            [string]::Join('', ($uri, $_))
-        }}
-    }
-    catch
-    {
-        Write-Host "Enable to send request to the '$uri'. Error: '$_'"
-        exit 1
-    }
-}
 function Install-PyPy
 {
     param(
@@ -56,7 +40,9 @@ function Install-PyPy
         New-Item -ItemType Directory -Path $pypyVersionPath -Force | Out-Null
 
         Write-Host "Move PyPy '${pythonVersion}' files to '${pypyArchPath}'"
-        Move-Item -Path $tempFolder -Destination $pypyArchPath | Out-Null
+        Invoke-SBWithRetry -Command {
+            Move-Item -Path $tempFolder -Destination $pypyArchPath -ErrorAction Stop | Out-Null
+        }
 
         Write-Host "Install PyPy '${pythonVersion}' in '${pypyArchPath}'"
         if (Test-Path "$pypyArchPath\python.exe") {
@@ -83,35 +69,29 @@ function Install-PyPy
 }
 
 # Get PyPy content from toolset
-$pypyTools = Get-ToolsetContent | Select-Object -ExpandProperty toolcache | Where-Object Name -eq "PyPy"
+$toolsetVersions = Get-ToolsetContent | Select-Object -ExpandProperty toolcache | Where-Object Name -eq "PyPy"
 
-# Get PyPy versions from the repo
-$pypyVersions = Get-PyPyVersions
+# Get PyPy releases
+$pypyVersions = Invoke-RestMethod https://downloads.python.org/pypy/versions.json
 
 Write-Host "Starting installation PyPy..."
-foreach($pypyTool in $pypyTools)
+foreach($toolsetVersion in $toolsetVersions.versions)
 {
-    foreach($pypyVersion in $pypyTool.versions)
+    # Query latest PyPy version
+    $latestMajorPyPyVersion = $pypyVersions |
+        Where-Object {$_.python_version.StartsWith("$toolsetVersion") -and $_.stable -eq $true} |
+        Select-Object -ExpandProperty files -First 1 |
+        Where-Object platform -like "win*"
+    
+    if ($latestMajorPyPyVersion)
     {
-        # Query latest PyPy version
-        # PyPy 3.6 is not updated anymore and win32 should be used
-        $platform = if ($pypyVersion -like "3.6*") { "win32" } else { $pypyTool.platform }
-        $filter = '{0}{1}-v\d+\.\d+\.\d+-{2}.zip' -f $pypyTool.name, $pypyVersion, $platform
-        $latestMajorPyPyVersion = $pypyVersions | Where-Object {$_.name -match $filter} | Select-Object -First 1
-
-        if ($latestMajorPyPyVersion)
-        {
-            $packageName = $latestMajorPyPyVersion.name
-
-            Write-Host "Found PyPy '$packageName' package"
-            $url = $latestMajorPyPyVersion.href
-            $tempPyPyPackagePath = Start-DownloadWithRetry -Url $url -Name  $packageName
-            Install-PyPy -PackagePath $tempPyPyPackagePath -Architecture $pypyTool.arch
-        }
-        else
-        {
-            Write-Host "Failed to query PyPy version '$pypyVersion' by '$filter' filter"
-            exit 1
-        }
+        Write-Host "Found PyPy '$($latestMajorPyPyVersion.filename)' package"
+        $tempPyPyPackagePath = Start-DownloadWithRetry -Url $latestMajorPyPyVersion.download_url -Name $latestMajorPyPyVersion.filename
+        Install-PyPy -PackagePath $tempPyPyPackagePath -Architecture $toolsetVersions.arch
+    }
+    else
+    {
+        Write-Host "Failed to query PyPy version '$toolsetVersion'"
+        exit 1
     }
 }

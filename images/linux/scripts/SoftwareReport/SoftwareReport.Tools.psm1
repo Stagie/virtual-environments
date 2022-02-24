@@ -89,8 +89,7 @@ function Get-DockerBuildxVersion {
 }
 
 function Get-GitVersion {
-    $result = Get-CommandResult "git --version"
-    $gitVersion = $result.Output | Take-OutputPart -Part 2
+    $gitVersion = git --version | Take-OutputPart -Part -1
     $aptSourceRepo = Get-AptSourceRepository -PackageName "git-core"
     return "Git $gitVersion (apt source repository: $aptSourceRepo)"
 }
@@ -170,6 +169,11 @@ function Get-NewmanVersion {
     return "Newman $(newman --version)"
 }
 
+function Get-NVersion {
+    $nVersion = (n --version).Replace('v', '')
+    return "n $nVersion"
+}
+
 function Get-NvmVersion {
     $nvmVersion = bash -c "source /etc/skel/.nvm/nvm.sh && nvm --version"
     return "nvm $nvmVersion"
@@ -177,7 +181,7 @@ function Get-NvmVersion {
 
 function Get-PackerVersion {
     # Packer 1.7.1 has a bug and outputs version to stderr instead of stdout https://github.com/hashicorp/packer/issues/10855
-    $result = (Get-CommandResult -Command "packer --version").Output
+    $result = (Get-CommandResult "packer --version").Output
     $packerVersion = [regex]::matches($result, "(\d+.){2}\d+").Value
     return "Packer $packerVersion"
 }
